@@ -1,0 +1,6 @@
+# Senzill files
+*.sz
+
+# Assembler files
+*.asm
+*.sm

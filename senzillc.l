@@ -20,7 +20,8 @@ C-libraries and Token definitions
 TOKEN Definitions 
 =========================================================================*/ 
 DIGIT [0-9] 
-ID [a-z][a-z0-9]* 
+ID [a-z][a-z0-9]*
+COMMENT "//".*\n
 
 /*========================================================================= 
 REGULAR EXPRESSIONS defining the tokens for the Simple language 
@@ -28,7 +29,7 @@ REGULAR EXPRESSIONS defining the tokens for the Simple language
 %% 
 
 ":=" { return(ASSGNOP); } 
-{DIGIT}+ { yylval.intval = atoi( yytext ); return(NUMBER); } 
+{DIGIT}+ { yylval.intval = strtol(yytext, NULL, 10); return(NUMBER); } 
 do { return(DO); } 
 else { return(ELSE); } 
 end { return(END); } 
@@ -44,6 +45,7 @@ while { return(WHILE); }
 write { return(WRITE); } 
 {ID} { yylval.id = (char *) strdup(yytext); return(IDENTIFIER); } 
 [ \t\n]+ /* eat up whitespace */ 
+{COMMENT} /* ignore comments */
 . { return(yytext[0]);} 
 
 %% 

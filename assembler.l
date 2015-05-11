@@ -35,7 +35,7 @@ void new_label( char *name, int address ) {
          printf("Number of BP: %d\n", labels[ i ].num_back_patches );
 #endif
          for( j = 0; j < labels[ i ].num_back_patches; j++ )
-            code[ labels[ i ].back_patches[ labels[ i ].num_back_patches ] ].arg = address;
+            code[ labels[ i ].back_patches[ labels[ i ].num_back_patches ] ].arg.iv = address;
          return;
       }
    }   
@@ -90,6 +90,7 @@ void create_command( char * text ) {
 Identifier [a-zA-Z][a-zA-Z0-9]*
 Command [a-z_]+
 Integer [0-9]+
+Real [0-9]+"."[0-9]+
 
 %x PARAM
 
@@ -97,9 +98,10 @@ Integer [0-9]+
 
 {Identifier}":"       { new_label( remove_colon( yytext ), gen_label() ); } 
 {Command}             { create_command( yytext ); BEGIN( PARAM ); }
-<PARAM>{Integer}      { gen_code( command, atoi( yytext ) ); BEGIN( INITIAL ); }
-<PARAM>{Identifier}   { if ( get_address( yytext ) != -1 ) gen_code( command, get_address( yytext ) ); 
-                        else { gen_code( command, -1 ); new_label( yytext, -1 ); add_backpatch_to_label( yytext, gen_label() ); }
+<PARAM>{Integer}      { gen_code( command, gen_stack_elem_i( strtol( yytext, NULL, 10 ) ) ); BEGIN( INITIAL ); }
+<PARAM>{Real}         { gen_code( command, gen_stack_elem_r( strtof( yytext, NULL ) ) ); BEGIN( INITIAL ); }
+<PARAM>{Identifier}   { if ( get_address( yytext ) != -1 ) gen_code( command, gen_stack_elem_i( get_address( yytext ) ) ); 
+                        else { gen_code( command, gen_stack_elem_i( -1 ) ); new_label( yytext, -1 ); add_backpatch_to_label( yytext, gen_label() ); }
                         BEGIN( INITIAL ); 
                       }
 <INITIAL,PARAM>[ ]  ;

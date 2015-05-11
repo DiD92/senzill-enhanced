@@ -29,7 +29,8 @@ REGULAR EXPRESSIONS defining the tokens for the Simple language
 %% 
 
 ":=" { return(ASSGNOP); } 
-{DIGIT}+ { yylval.intval = strtol(yytext, NULL, 10); return(NUMBER); } 
+{DIGIT}+ { yylval.intval = strtol(yytext, NULL, 10); return(NUMBER); }
+{DIGIT}+"."{DIGIT}+ { yylval.rval = strtof(yytext, NULL); return(RNUMBER); }
 do { return(DO); } 
 else { return(ELSE); } 
 end { return(END); } 
@@ -37,12 +38,13 @@ fi { return(FI); }
 if { return(IF); } 
 in { return(IN); } 
 integer { return(INTEGER); } 
+real { return(REAL); }
 let { return(LET); } 
 read { return(READ); } 
 skip { return(SKIP); } 
 then { return(THEN); } 
 while { return(WHILE); } 
-write { return(WRITE); } 
+write { return(OUT); } 
 {ID} { yylval.id = (char *) strdup(yytext); return(IDENTIFIER); } 
 [ \t\n]+ /* eat up whitespace */ 
 {COMMENT} /* ignore comments */

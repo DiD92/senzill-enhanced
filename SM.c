@@ -5,18 +5,21 @@ Modified by: Jordi Planes
 ***************************************************************************/ 
 
 #include <stdio.h>
+#include <stdlib.h>
+#include "ST.h"
 #include "SM.h"
 
 /* OPERATIONS: External Representation */ 
 char *op_name[] = {"halt", "store", "jmp_false", "goto", "call", "ret",
-		   "data", "ld_int", "ld_var", "in_int", "out_int", 
-		   "lt", "eq", "gt", "add", "sub", "mult", "div", "pwr" }; 
+		   "data", "ld_int", "ld_real", "ld_var_i", "ld_var_r", "in_int", "in_real", 
+       "out", "lt", "eq", "gt", "add", "sub", "mult", "div", 
+       "pwr" }; 
 
 /* CODE Array */ 
 struct instruction code[MAX_MEMORY];
 
 /* RUN-TIME Stack */ 
-int stack[MAX_MEMORY];
+stack_elem stack[MAX_MEMORY];
 
 /*------------------------------------------------------------------------- 
   Registers 
@@ -25,13 +28,201 @@ int pc = 0;
 struct instruction ir; 
 int ar = 0; 
 int top = 0; 
-char ch; 
+char ch;
+
+/*========================================================================= 
+  Generate Stack Element
+  =========================================================================*/ 
+stack_elem * gen_stack_elem_i(int value)
+{
+  stack_elem *ptr;
+  ptr = (stack_elem *) malloc(sizeof(stack_elem));
+  ptr->v_type = T_INTEGER;
+  ptr->iv = value;
+  return ptr;
+}
+
+stack_elem * gen_stack_elem_r(float value)
+{
+  stack_elem *ptr;
+  ptr = (stack_elem *) malloc(sizeof(stack_elem));
+  ptr->v_type = T_REAL;
+  ptr->rv = value;
+  return ptr;
+}
+
+/*========================================================================= 
+  Operations
+  =========================================================================*/ 
+  stack_elem operate_terms(stack_elem s1, stack_elem s2, int op)
+  {
+    stack_elem res;
+    int iv1, iv2;
+    float fv1, fv2;
+    switch(s1.v_type) {
+      case T_INTEGER: // First value is INTEGER
+        switch(s2.v_type) {
+          case T_INTEGER: // Second value is INTEGER
+            res.v_type = T_INTEGER;
+            iv1 = s1.iv;
+            iv2 = s2.iv;
+            switch(op) {
+              case LT:
+                res.iv = iv1 < iv2;
+                break;
+              case EQ:
+                res.iv = iv1 == iv2;
+                break;
+              case GT:
+                res.iv = iv1 > iv2;
+                break;
+              case ADD:
+                res.iv = iv1 + iv2;
+                break;
+              case SUB:
+                res.iv = iv1 - iv2;
+                break;
+              case MULT:
+                res.iv = iv1 * iv2;
+                break;
+              case DIV:
+                res.iv = iv1 / iv2;
+                break;
+              case PWR:
+                res.iv = iv1 * iv2; //TOFIX
+                break;
+              default:
+                printf( "%d Internal Error: Memory Dump\n", ir.op );
+                break;
+            }
+            break;
+          case T_REAL: // Second value is REAL
+            res.v_type = T_REAL;
+            iv1 = s1.iv;
+            fv2 = s2.rv;
+            switch(op) {
+              case LT:
+                res.iv = iv1 < fv2;
+                break;
+              case EQ:
+                res.iv = iv1 == fv2;
+                break;
+              case GT:
+                res.iv = iv1 > fv2;
+                break;
+              case ADD:
+                res.rv = iv1 + fv2;
+                break;
+              case SUB:
+                res.rv = iv1 - fv2;
+                break;
+              case MULT:
+                res.rv = iv1 * fv2;
+                break;
+              case DIV:
+                res.rv = iv1 / fv2;
+                break;
+              case PWR:
+                res.rv = iv1 * fv2; //TOFIX
+                break;
+              default:
+                printf( "%d Internal Error: Memory Dump\n", ir.op );
+                break;
+            }
+            break;
+          default:
+            printf( "%d Internal Error: Memory Dump\n", ir.op );
+            break;
+        }
+        break;
+      case T_REAL: // First value is REAL
+        switch(s2.v_type) {
+          case T_INTEGER: // Second value is INTEGER
+            res.v_type = T_REAL;
+            fv1 = s1.rv;
+            iv2 = s2.iv;
+            switch(op) {
+              case LT:
+                res.iv = fv1 < iv2;
+                break;
+              case EQ:
+                res.iv = fv1 == iv2;
+                break;
+              case GT:
+                res.iv = fv1 > iv2;
+                break;
+              case ADD:
+                res.rv = fv1 + iv2;
+                break;
+              case SUB:
+                res.rv = fv1 - iv2;
+                break;
+              case MULT:
+                res.rv = fv1 * iv2;
+                break;
+              case DIV:
+                res.rv = fv1 / iv2;
+                break;
+              case PWR:
+                res.rv = fv1 * iv2; //TOFIX
+                break;
+              default:
+                printf( "%d Internal Error: Memory Dump\n", ir.op );
+                break;
+            }
+            break;
+          case T_REAL: // Second value is REAL
+            res.v_type = T_REAL;
+            fv1 = s1.rv;
+            fv2 = s2.rv;
+            switch(op) {
+              case LT:
+                res.iv = fv1 < fv2;
+                break;
+              case EQ:
+                res.iv = fv1 == fv2;
+                break;
+              case GT:
+                res.iv = fv1 > fv2;
+                break;
+              case ADD:
+                res.rv = fv1 + fv2;
+                break;
+              case SUB:
+                res.rv = fv1 - fv2;
+                break;
+              case MULT:
+                res.rv = fv1 * fv2;
+                break;
+              case DIV:
+                res.rv = fv1 / fv2;
+                break;
+              case PWR:
+                res.rv = fv1 * fv2; //TOFIX
+                break;
+              default:
+                printf( "%d Internal Error: Memory Dump\n", ir.op );
+                break;
+            }
+            break;
+          default:
+            printf( "%d Internal Error: Memory Dump\n", ir.op );
+            break;
+        }
+        break;
+      default:
+        printf( "%d Internal Error: Memory Dump\n", ir.op );
+        break;
+    }
+    return res;
+  }
 
 /*========================================================================= 
   Fetch Execute Cycle 
   =========================================================================*/ 
 void fetch_execute_cycle() 
-{ 
+{
+  stack_elem s1, s2, res;
   do { 
 #ifndef NDEBUG    
     printf( "PC = %3d IR.arg = %8d AR = %3d Top = %3d,%8d\n", 
@@ -42,79 +233,98 @@ void fetch_execute_cycle()
     /* Execute */ 
     switch (ir.op) { 
       case HALT:
-        printf( "halt\n" ); 
+        printf( "Halt\n" ); 
         break; 
       case READ_INT:
-        printf( "Input: " ); 
-        scanf( "%d", &stack[ar+ir.arg] ); 
-        break; 
-      case WRITE_INT: 
-        printf( "Output: %d\n", stack[top--] ); 
-        break; 
-      case STORE: 
-        stack[ir.arg] = stack[top--]; 
-        break; 
+        printf( "Input integer: " );
+        scanf( "%d", &stack[ar+ir.arg.iv].iv );
+        stack[ar+ir.arg.iv].v_type = T_INTEGER;
+        break;
+      case READ_REAL:
+        printf( "Input real: " );
+        scanf( "%f", &stack[ar+ir.arg.iv].rv );
+        stack[ar+ir.arg.iv].v_type = T_REAL;
+        break;
+      case WRITE:
+        switch(stack[top].v_type) {
+          case T_INTEGER:
+            printf( "Output: %d\n", stack[top--].iv );
+            break;
+          case T_REAL:
+            printf( "Output: %4.4f\n", stack[top--].rv );
+            break;
+          default:
+            printf( "%d Internal Error: Memory Dump\n", ir.op ); 
+            break; 
+        }
+        break;
+      case STORE:
+        switch(stack[top].v_type) {
+          case T_INTEGER:
+            stack[ir.arg.iv].iv = stack[top].iv;
+            stack[ir.arg.iv].v_type = stack[top--].v_type;
+            break;
+          case T_REAL:
+            stack[ir.arg.iv].rv = stack[top].rv;
+            stack[ir.arg.iv].v_type = stack[top--].v_type;
+            break;
+          default:
+            printf( "%d Internal Error: Memory Dump\n", ir.op ); 
+            break; 
+        }
+        break;
       case JMP_FALSE: 
-        if ( stack[top--] == 0 ) 
-          pc = ir.arg; 
+        if ( stack[top--].iv == 0 ) 
+          pc = ir.arg.iv; 
         break; 
       case GOTO: 
-        pc = ir.arg; 
+        pc = ir.arg.iv; 
         break; 
       case CALL: 
-        stack[++top] = pc+1; 
-        pc = ir.arg; 
+        stack[++top].iv = pc+1; 
+        pc = ir.arg.iv; 
         break;
       case RET: 
-        pc = stack[top--]; 
+        pc = stack[top--].iv; 
         break;
       case DATA: 
-        top = top + ir.arg; 
+        top = top + ir.arg.iv; 
         break; 
       case LD_INT: 
-        stack[++top] = ir.arg; 
-        break; 
-      case LD_VAR: 
-        stack[++top] = stack[ar+ir.arg]; 
-        break; 
-      case LT: 
-        if ( stack[top-1] < stack[top] ) 
-          stack[--top] = 1; 
+        stack[++top].v_type = T_INTEGER;
+        stack[top].iv = ir.arg.iv; 
+        break;
+      case LD_REAL:
+        stack[++top].v_type = T_REAL;
+        stack[top].rv = ir.arg.rv;
+        break;
+      case LD_VAR_I: 
+        stack[++top].iv = stack[ar+ir.arg.iv].iv;
+        stack[top].v_type = stack[ar+ir.arg.iv].v_type;
+        break;
+      case LD_VAR_R:
+        stack[++top].rv = stack[ar+ir.arg.iv].rv;
+        stack[top].v_type = stack[ar+ir.arg.iv].v_type;
+        break;
+      case LT:
+      case EQ:
+      case GT:
+        if ( operate_terms( stack[top-1], stack[top], ir.op ).iv )
+          stack[--top].iv = 1; 
         else 
-          stack[--top] = 0; 
-        break; 
-      case EQ: 
-        if ( stack[top-1] == stack[top] ) 
-          stack[--top] = 1; 
-        else 
-          stack[--top] = 0; 
-        break; 
-      case GT: 
-        if ( stack[top-1] > stack[top] ) 
-          stack[--top] = 1; 
-        else 
-          stack[--top] = 0; 
-        break; 
-      case ADD: 
-        stack[top-1] = stack[top-1] + stack[top]; 
-        top--; 
-        break; 
-      case SUB: 
-        stack[top-1] = stack[top-1] - stack[top]; 
-        top--; 
-        break; 
-      case MULT: 
-        stack[top-1] = stack[top-1] * stack[top]; 
-        top--; 
-        break; 
-      case DIV: 
-        stack[top-1] = stack[top-1] / stack[top]; 
-        top--; 
-        break; 
-      case PWR: 
-        stack[top-1] = stack[top-1] * stack[top]; 
-        top--; 
-        break; 
+          stack[--top].iv = 0; 
+        break;
+      case ADD:
+      case SUB:
+      case MULT:
+      case DIV:
+      case PWR:
+        s1 = stack[top-1];
+        s2 = stack[top];
+        res = operate_terms( s1, s2, ir.op ); // ERRORS
+        stack[top-1] = res;
+        top--;
+        break;
       default: 
         printf( "%d Internal Error: Memory Dump\n", ir.op ); 
         break; 

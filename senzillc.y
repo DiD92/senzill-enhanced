@@ -19,7 +19,11 @@ C Libraries, Symbol Table, Code Generator & other C code
 int yyerror(char *);
 int yylex();
 
-int errors; /* Error Count */ 
+int errors; /* Error Count */
+/*------------------------------------------------------------------------- 
+Support variables
+-------------------------------------------------------------------------*/ 
+int current_type;
 /*------------------------------------------------------------------------- 
 The following support backpatching 
 -------------------------------------------------------------------------*/ 
@@ -37,11 +41,11 @@ struct lbs * newlblrec() /* Allocate space for the labels */
 /*------------------------------------------------------------------------- 
 Install identifier & check if previously defined. 
 -------------------------------------------------------------------------*/ 
-void install ( char *sym_name ) 
+void install ( char *sym_name, int sym_type ) 
 { 
   symrec *s = getsym (sym_name); 
   if (s == 0) 
-    s = putsym (sym_name); 
+    s = putsym (sym_name, sym_type); 
   else { 
     char message[ 100 ];
     sprintf( message, "%s is already defined\n", sym_name ); 
@@ -54,9 +58,68 @@ If identifier is defined, generate code
 -------------------------------------------------------------------------*/ 
 int context_check( char *sym_name ) 
 { 
-  symrec *identifier = getsym( sym_name ); 
-  return identifier->offset;
-} 
+  symrec *identifier = getsym( sym_name );
+  if(identifier == NULL) {
+    char message[ 100 ];
+    sprintf( message, "%s is not defined\n", sym_name ); 
+    yyerror( message );
+    return -1;
+  } else {
+    return identifier->offset;
+  }
+}
+
+/*------------------------------------------------------------------------- 
+Get type for identifier if defined
+-------------------------------------------------------------------------*/
+int get_sym_type( char *sym_name )
+{
+  symrec *identifier = getsym( sym_name );
+  if(identifier == NULL) {
+    char message[ 100 ];
+    sprintf( message, "%s is not defined\n", sym_name ); 
+    yyerror( message );
+    return T_ERR;
+  } else {
+    return identifier->type;
+  }
+}
+
+/*------------------------------------------------------------------------- 
+Generate specific READ instruction for type
+-------------------------------------------------------------------------*/
+int gen_read_code( int sym_type )
+{
+  char message[ 100 ];
+  switch(sym_type) {
+    case(T_INTEGER):
+      return READ_INT;
+    case(T_REAL):
+      return READ_REAL;
+    default:
+      sprintf( message, "symbol type not recognized\n" ); 
+      yyerror( message );
+      return HALT;
+  }
+}
+
+/*------------------------------------------------------------------------- 
+Generate specific LD_VAR instruction for type
+-------------------------------------------------------------------------*/
+int gen_load_code( int sym_type )
+{
+  char message[ 100 ];
+  switch(sym_type) {
+    case(T_INTEGER):
+      return LD_VAR_I;
+    case(T_REAL):
+      return LD_VAR_R;
+    default:
+      sprintf( message, "symbol type not recognized\n" ); 
+      yyerror( message );
+      return HALT;
+  }
+}
 
 /*========================================================================= 
 SEMANTIC RECORDS 
@@ -65,7 +128,8 @@ SEMANTIC RECORDS
 
 %union semrec /* The Semantic Records */ 
  { 
-   int intval; /* Integer values */ 
+   int intval; /* Integer values */
+   float rval; /* Real values */
    char *id; /* Identifiers */ 
    struct lbs *lbls; /* For backpatching */ 
 };
@@ -74,11 +138,12 @@ SEMANTIC RECORDS
 TOKENS 
 =========================================================================*/ 
 %start program 
-%token <intval> NUMBER /* Simple integer */ 
+%token <intval> NUMBER /* Simple integer */
+%token <rval> RNUMBER /* Simple float */
 %token <id> IDENTIFIER /* Simple identifier */ 
 %token <lbls> IF WHILE /* For backpatching labels */ 
 %token SKIP THEN ELSE FI DO END 
-%token INTEGER READ WRITE LET IN 
+%token INTEGER REAL READ OUT LET IN 
 %token ASSGNOP 
 
 /*========================================================================= 
@@ -94,16 +159,20 @@ GRAMMAR RULES for the Simple language
 
 %% 
 
-program : LET declarations IN { gen_code( DATA, data_location() - 1 ); } 
-          commands END { gen_code( HALT, 0 ); YYACCEPT; } 
-; 
+program : LET declarations IN { gen_code( DATA, gen_stack_elem_i( data_location() - 1 ) ); } 
+          commands END { gen_code( HALT, gen_stack_elem_i( 0 ) ); YYACCEPT; } 
+;
 
-declarations : /* empty */ 
-    | INTEGER id_seq IDENTIFIER '.' { install( $3 ); } 
+declarations : /* empty */
+    | declarations declaration '.'
+
+declaration : /* empty */ 
+    | INTEGER { current_type = T_INTEGER; } id_seq IDENTIFIER { install( $4, T_INTEGER ); }
+    | REAL { current_type = T_REAL; } id_seq IDENTIFIER { install( $4, T_REAL ); }
 ; 
 
 id_seq : /* empty */ 
-    | id_seq IDENTIFIER ',' { install( $2 ); } 
+    | id_seq IDENTIFIER ',' { install( $2, current_type ); } 
 ; 
 
 commands : /* empty */ 
@@ -111,31 +180,32 @@ commands : /* empty */
 ; 
 
 command : SKIP 
-   | READ IDENTIFIER { gen_code( READ_INT, context_check( $2 ) ); } 
-   | WRITE exp { gen_code( WRITE_INT, 0 ); } 
-   | IDENTIFIER ASSGNOP exp { gen_code( STORE, context_check( $1 ) ); } 
+   | READ IDENTIFIER { gen_code( gen_read_code( get_sym_type( $2 ) ), gen_stack_elem_i( context_check( $2 ) ) ); } 
+   | OUT exp { gen_code( WRITE, gen_stack_elem_i( 0 ) ); } 
+   | IDENTIFIER ASSGNOP exp { gen_code( STORE, gen_stack_elem_i( context_check( $1 ) ) ); } 
    | IF bool_exp { $1 = (struct lbs *) newlblrec(); $1->for_jmp_false = reserve_loc(); } 
    THEN commands { $1->for_goto = reserve_loc(); } ELSE { 
-     back_patch( $1->for_jmp_false, JMP_FALSE, gen_label() ); 
-   } commands FI { back_patch( $1->for_goto, GOTO, gen_label() ); } 
+     back_patch( $1->for_jmp_false, JMP_FALSE, gen_stack_elem_i( gen_label() ) ); 
+   } commands FI { back_patch( $1->for_goto, GOTO, gen_stack_elem_i( gen_label() ) ); } 
    | WHILE { $1 = (struct lbs *) newlblrec(); $1->for_goto = gen_label(); } 
-   bool_exp { $1->for_jmp_false = reserve_loc(); } DO commands END { gen_code( GOTO, $1->for_goto ); 
-   back_patch( $1->for_jmp_false, JMP_FALSE, gen_label() ); } 
+   bool_exp { $1->for_jmp_false = reserve_loc(); } DO commands END { gen_code( GOTO, gen_stack_elem_i( $1->for_goto ) ); 
+   back_patch( $1->for_jmp_false, JMP_FALSE, gen_stack_elem_i( gen_label() ) ); } 
 ;
 
-bool_exp : exp '<' exp { gen_code( LT, 0 ); } 
-   | exp '=' exp { gen_code( EQ, 0 ); } 
-   | exp '>' exp { gen_code( GT, 0 ); } 
+bool_exp : exp '<' exp { gen_code( LT, gen_stack_elem_i( 0 ) ); } 
+   | exp '=' exp { gen_code( EQ, gen_stack_elem_i( 0 ) ); } 
+   | exp '>' exp { gen_code( GT, gen_stack_elem_i( 0 ) ); } 
 ;
 
-exp : NUMBER { gen_code( LD_INT, $1 ); } 
-   | IDENTIFIER { gen_code( LD_VAR, context_check( $1 ) ); } 
-   | exp '+' exp { gen_code( ADD, 0 ); } 
-   | exp '-' exp { gen_code( SUB, 0 ); } 
-   | exp '*' exp { gen_code( MULT, 0 ); } 
-   | exp '/' exp { gen_code( DIV, 0 ); } 
-   | exp '^' exp { gen_code( PWR, 0 ); } 
-   | '(' exp ')' 
+exp : NUMBER { gen_code( LD_INT, gen_stack_elem_i( $1 ) ); }
+   | RNUMBER { gen_code( LD_REAL, gen_stack_elem_r( $1 ) ); }
+   | IDENTIFIER { gen_code( gen_load_code( get_sym_type( $1 ) ), gen_stack_elem_i( context_check( $1 ) ) ); } 
+   | exp '+' exp { gen_code( ADD, gen_stack_elem_i( 0 ) ); } 
+   | exp '-' exp { gen_code( SUB, gen_stack_elem_i( 0 ) ); } 
+   | exp '*' exp { gen_code( MULT, gen_stack_elem_i( 0 ) ); } 
+   | exp '/' exp { gen_code( DIV, gen_stack_elem_i( 0 ) ); } 
+   | exp '^' exp { gen_code( PWR, gen_stack_elem_i( 0 ) ); } 
+   | '(' exp ')' { }
 ;
 
 %% 

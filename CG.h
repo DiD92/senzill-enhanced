@@ -7,12 +7,19 @@
 
 #include "SM.h"
 
+struct file_code
+{
+	int code_op;
+	stack_elem arg;
+};
+typedef struct file_code file_code;
+
 extern int code_offset;
 
 int data_location();
-void gen_code( enum code_ops operation, int arg );
+void gen_code( enum code_ops operation, stack_elem *arg );
 int reserve_loc();
-void back_patch( int addr, enum code_ops operation, int arg );
+void back_patch( int addr, enum code_ops operation, stack_elem *arg );
 int gen_label();
 void print_code();
 void read_bytecode( char *file_name );

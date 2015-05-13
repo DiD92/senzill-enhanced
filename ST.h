@@ -14,7 +14,7 @@ struct symrec
 }; 
 typedef struct symrec symrec; 
 
-extern symrec sym_stack[MAX_DEPH];
+extern symrec sym_stack[MAX_DEPTH];
 
 symrec * getsym (char *sym_name);
 symrec * putsym (char *sym_name, int sym_type);

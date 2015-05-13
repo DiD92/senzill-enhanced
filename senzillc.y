@@ -144,13 +144,15 @@ TOKENS
 %token <lbls> IF WHILE /* For backpatching labels */ 
 %token SKIP THEN ELSE FI DO END 
 %token INTEGER REAL READ OUT LET IN 
-%token ASSGNOP 
+%token ASSGNOP GRTOEQ LWROEQ NOTEQ
 
 /*========================================================================= 
 OPERATOR PRECEDENCE 
 =========================================================================*/ 
 %left '-' '+' 
-%left '*' '/' 
+%left '*' '/'
+%left ANDOP OROP
+%right '!'
 %right '^' 
 
 /*========================================================================= 
@@ -194,7 +196,14 @@ command : SKIP
 
 bool_exp : exp '<' exp { gen_code( LT, gen_stack_elem_i( 0 ) ); } 
    | exp '=' exp { gen_code( EQ, gen_stack_elem_i( 0 ) ); } 
-   | exp '>' exp { gen_code( GT, gen_stack_elem_i( 0 ) ); } 
+   | exp '>' exp { gen_code( GT, gen_stack_elem_i( 0 ) ); }
+   | exp LWROEQ exp { gen_code( LE, gen_stack_elem_i( 0 ) ); }
+   | exp GRTOEQ exp { gen_code( GE, gen_stack_elem_i( 0 ) ); }
+   | exp NOTEQ exp { gen_code( NE, gen_stack_elem_i( 0 ) ); }
+   | bool_exp ANDOP bool_exp { gen_code( AND, gen_stack_elem_i( 0 ) ); }
+   | bool_exp OROP bool_exp { gen_code( OR, gen_stack_elem_i( 0 ) ); }
+   | '!' bool_exp { gen_code( NOT, gen_stack_elem_i( 0 ) ); }
+   | '(' bool_exp ')' {}
 ;
 
 exp : NUMBER { gen_code( LD_INT, gen_stack_elem_i( $1 ) ); }
@@ -204,7 +213,8 @@ exp : NUMBER { gen_code( LD_INT, gen_stack_elem_i( $1 ) ); }
    | exp '-' exp { gen_code( SUB, gen_stack_elem_i( 0 ) ); } 
    | exp '*' exp { gen_code( MULT, gen_stack_elem_i( 0 ) ); } 
    | exp '/' exp { gen_code( DIV, gen_stack_elem_i( 0 ) ); } 
-   | exp '^' exp { gen_code( PWR, gen_stack_elem_i( 0 ) ); } 
+   | exp '^' exp { gen_code( PWR, gen_stack_elem_i( 0 ) ); }
+   | '-' %prec '!' exp { gen_code( NEG, gen_stack_elem_i( 0 ) ); }
    | '(' exp ')' { }
 ;
 

@@ -10,8 +10,9 @@ DECLARATIONS
 /* OPERATIONS: Internal Representation */ 
 enum code_ops { HALT, STORE, JMP_FALSE, GOTO, CALL, RET,
 		DATA, LD_INT, LD_REAL, LD_VAR_I, LD_VAR_R, 
-		READ_INT, READ_REAL, WRITE, 
-		LT, EQ, GT, ADD, SUB, MULT, DIV, PWR };
+		READ_INT, READ_REAL, WRITE, LT, EQ, GT, 
+		LE, GE, NE, AND, OR, NOT, ADD, SUB, MULT, 
+		DIV, PWR, NEG };
 
 struct stack_elem
 {

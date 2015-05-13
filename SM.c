@@ -12,8 +12,8 @@ Modified by: Jordi Planes
 /* OPERATIONS: External Representation */ 
 char *op_name[] = {"halt", "store", "jmp_false", "goto", "call", "ret",
 		   "data", "ld_int", "ld_real", "ld_var_i", "ld_var_r", "in_int", "in_real", 
-       "out", "lt", "eq", "gt", "add", "sub", "mult", "div", 
-       "pwr" }; 
+       "out", "lt", "eq", "gt", "le", "ge", "ne", "and", "or", "not", 
+       "add", "sub", "mult", "div", "pwr", "neg" }; 
 
 /* CODE Array */ 
 struct instruction code[MAX_MEMORY];
@@ -76,6 +76,15 @@ stack_elem * gen_stack_elem_r(float value)
               case GT:
                 res.iv = iv1 > iv2;
                 break;
+              case LE:
+                res.iv = iv1 <= iv2;
+                break;
+              case GE:
+                res.iv = iv1 >= iv2;
+                break;
+              case NE:
+                res.iv = iv1 != iv2;
+                break;
               case ADD:
                 res.iv = iv1 + iv2;
                 break;
@@ -109,6 +118,15 @@ stack_elem * gen_stack_elem_r(float value)
                 break;
               case GT:
                 res.iv = iv1 > fv2;
+                break;
+              case LE:
+                res.iv = iv1 <= fv2;
+                break;
+              case GE:
+                res.iv = iv1 >= fv2;
+                break;
+              case NE:
+                res.iv = iv1 != fv2;
                 break;
               case ADD:
                 res.rv = iv1 + fv2;
@@ -151,6 +169,15 @@ stack_elem * gen_stack_elem_r(float value)
               case GT:
                 res.iv = fv1 > iv2;
                 break;
+              case LE:
+                res.iv = fv1 <= iv2;
+                break;
+              case GE:
+                res.iv = fv1 >= iv2;
+                break;
+              case NE:
+                res.iv = fv1 != iv2;
+                break;
               case ADD:
                 res.rv = fv1 + iv2;
                 break;
@@ -184,6 +211,15 @@ stack_elem * gen_stack_elem_r(float value)
                 break;
               case GT:
                 res.iv = fv1 > fv2;
+                break;
+              case LE:
+                res.iv = fv1 <= fv2;
+                break;
+              case GE:
+                res.iv = fv1 >= fv2;
+                break;
+              case NE:
+                res.iv = fv1 != fv2;
                 break;
               case ADD:
                 res.rv = fv1 + fv2;
@@ -223,6 +259,7 @@ stack_elem * gen_stack_elem_r(float value)
 void fetch_execute_cycle() 
 {
   stack_elem s1, s2, res;
+  int tmp;
   do { 
 #ifndef NDEBUG    
     printf( "PC = %3d IR.arg = %8d AR = %3d Top = %3d,%8d\n", 
@@ -309,10 +346,24 @@ void fetch_execute_cycle()
       case LT:
       case EQ:
       case GT:
+      case LE:
+      case GE:
+      case NE:
         if ( operate_terms( stack[top-1], stack[top], ir.op ).iv )
           stack[--top].iv = 1; 
         else 
           stack[--top].iv = 0; 
+        break;
+      case AND:
+        tmp = ( ( stack[top-1].iv ) && ( stack[top].iv ) );
+        stack[--top].iv = tmp;
+        break;
+      case OR:
+        tmp = ( ( stack[top-1].iv ) || ( stack[top].iv ) );
+        stack[--top].iv = tmp;
+        break;
+      case NOT:
+        ( stack[top].iv == 1 ) ? ( stack[top].iv = 0 ) : ( stack[top].iv = 1 );
         break;
       case ADD:
       case SUB:
@@ -324,6 +375,20 @@ void fetch_execute_cycle()
         res = operate_terms( s1, s2, ir.op ); // ERRORS
         stack[top-1] = res;
         top--;
+        break;
+      case NEG:
+        s1 = stack[top];
+        switch (s1.v_type) {
+          case T_INTEGER:
+            stack[top].iv = -1 * s1.iv;
+            break;
+          case T_REAL:
+            stack[top].rv = -1.0 * s1.rv;
+            break;
+          default:
+            printf( "%d Internal Error: Memory Dump\n", ir.op ); 
+            break;
+        }
         break;
       default: 
         printf( "%d Internal Error: Memory Dump\n", ir.op ); 

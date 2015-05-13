@@ -29,13 +29,18 @@ REGULAR EXPRESSIONS defining the tokens for the Simple language
 %% 
 
 ":=" { return(ASSGNOP); } 
+">=" { return(GRTOEQ); }
+"<=" { return(LWROEQ); }
+"!=" { return(NOTEQ); }
 {DIGIT}+ { yylval.intval = strtol(yytext, NULL, 10); return(NUMBER); }
 {DIGIT}+"."{DIGIT}+ { yylval.rval = strtof(yytext, NULL); return(RNUMBER); }
 do { return(DO); } 
 else { return(ELSE); } 
 end { return(END); } 
 fi { return(FI); } 
-if { return(IF); } 
+if { return(IF); }
+and { return(ANDOP); }
+or { return(OROP); }
 in { return(IN); } 
 integer { return(INTEGER); } 
 real { return(REAL); }

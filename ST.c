@@ -23,6 +23,7 @@ symrec *identifier;
 SYMBOL TABLE 
 Implementation: a chain of records. 
 ------------------------------------------------------------------------*/ 
+// REPLACE BY sym_stack in ST.h
 symrec *sym_table = (symrec *)0; /* The pointer to the Symbol Table */ 
 
 /*======================================================================== 
@@ -44,9 +45,7 @@ symrec * putsym (char *sym_name, int sym_type)
 symrec * getsym (char *sym_name) 
 { 
   symrec *ptr; 
-  for ( ptr = sym_table; 
-	ptr != (symrec *) 0; 
-	ptr = (symrec *)ptr->next ) 
+  for ( ptr = sym_table; ptr != (symrec *) 0; ptr = (symrec *)ptr->next ) 
     if (strcmp (ptr->name,sym_name) == 0) 
       return ptr; 
   return NULL;

@@ -1,6 +1,8 @@
 /*------------------------------------------------------------------------- 
 SYMBOL TABLE RECORD 
 -------------------------------------------------------------------------*/
+#define MAX_DEPTH 20
+
 enum var_types { T_INTEGER, T_REAL, T_ERR };
 
 struct symrec 
@@ -11,6 +13,8 @@ struct symrec
   struct symrec *next; /* link field */ 
 }; 
 typedef struct symrec symrec; 
+
+extern symrec sym_stack[MAX_DEPH];
 
 symrec * getsym (char *sym_name);
 symrec * putsym (char *sym_name, int sym_type);

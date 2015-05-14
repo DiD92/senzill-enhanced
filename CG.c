@@ -55,12 +55,18 @@ void print_code()
   while (i < code_offset) {
     switch(code[i].arg.v_type) {
       case T_REAL:
-        printf("%3d: %-10s%4.4f\n",i,op_name[(int) code[i].op], code[i].arg.rv );
+        printf("%3d: %-10s%4.4f\n",i,op_name[(int) code[i].op], code[i].arg.rv);
         break;
       case T_INTEGER:
-        printf("%3d: %-10s%4d\n",i,op_name[(int) code[i].op], code[i].arg.iv );
+        printf("%3d: %-10s%4d\n",i,op_name[(int) code[i].op], code[i].arg.iv);
+        break;
+      case T_STRING:
+        printf("STRING %d\n", code[i].arg.len);
+        printf("%3d: %-10s%s\n",i,op_name[(int) code[i].op], code[i].arg.str);
         break;
       default:
+        printf("%3d: UNKNOWN COMMAND\n", i);
+        return;
         break;
     }
     i++; 

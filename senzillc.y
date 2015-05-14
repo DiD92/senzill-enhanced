@@ -91,11 +91,13 @@ Generate specific READ instruction for type
 int gen_read_code( int sym_type )
 {
   char message[ 100 ];
-  switch(sym_type) {
-    case(T_INTEGER):
+  switch (sym_type) {
+    case T_INTEGER:
       return READ_INT;
-    case(T_REAL):
+    case T_REAL:
       return READ_REAL;
+    case T_STRING:
+      return READ_STR;
     default:
       sprintf( message, "symbol type not recognized\n" ); 
       yyerror( message );
@@ -109,11 +111,13 @@ Generate specific LD_VAR instruction for type
 int gen_load_code( int sym_type )
 {
   char message[ 100 ];
-  switch(sym_type) {
-    case(T_INTEGER):
+  switch (sym_type) {
+    case T_INTEGER:
       return LD_VAR_I;
-    case(T_REAL):
+    case T_REAL:
       return LD_VAR_R;
+    case T_STRING:
+      return LD_VAR_S;
     default:
       sprintf( message, "symbol type not recognized\n" ); 
       yyerror( message );
@@ -130,6 +134,10 @@ SEMANTIC RECORDS
  { 
    int intval; /* Integer values */
    float rval; /* Real values */
+   struct { /* String values */
+     int len;
+     char *str;
+   } strval;
    char *id; /* Identifiers */ 
    struct lbs *lbls; /* For backpatching */ 
 };
@@ -140,10 +148,11 @@ TOKENS
 %start program 
 %token <intval> NUMBER /* Simple integer */
 %token <rval> RNUMBER /* Simple float */
+%token <strval> CHARS /* Simple string */
 %token <id> IDENTIFIER /* Simple identifier */ 
 %token <lbls> IF WHILE /* For backpatching labels */ 
 %token SKIP THEN ELSE FI DO END 
-%token INTEGER REAL READ OUT LET IN 
+%token INTEGER REAL STRING READ OUT LET IN LENGTH
 %token ASSGNOP GRTOEQ LWROEQ NOTEQ
 
 /*========================================================================= 
@@ -171,6 +180,7 @@ declarations : /* empty */
 declaration : /* empty */ 
     | INTEGER { current_type = T_INTEGER; } id_seq IDENTIFIER { install( $4, T_INTEGER ); }
     | REAL { current_type = T_REAL; } id_seq IDENTIFIER { install( $4, T_REAL ); }
+    | STRING { current_type = T_STRING; } id_seq IDENTIFIER { install( $4, T_STRING ); }
 ; 
 
 id_seq : /* empty */ 
@@ -182,16 +192,28 @@ commands : /* empty */
 ; 
 
 command : SKIP 
-   | READ IDENTIFIER { gen_code( gen_read_code( get_sym_type( $2 ) ), gen_stack_elem_i( context_check( $2 ) ) ); } 
-   | OUT exp { gen_code( WRITE, gen_stack_elem_i( 0 ) ); } 
-   | IDENTIFIER ASSGNOP exp { gen_code( STORE, gen_stack_elem_i( context_check( $1 ) ) ); } 
+   | READ IDENTIFIER { gen_code( gen_read_code( get_sym_type( $2 ) ), 
+     gen_stack_elem_i( context_check( $2 ) ) ); } 
+   | OUT exp { gen_code( WRITE, gen_stack_elem_i( 0 ) ); }
+   | OUT str_exp { gen_code( WRITE, gen_stack_elem_i( 0 ) ); }
+   | IDENTIFIER ASSGNOP exp { gen_code( STORE, gen_stack_elem_i( context_check( $1 ) ) ); }
+   | IDENTIFIER ASSGNOP str_exp { gen_code( STORE, gen_stack_elem_i( context_check( $1 ) ) ); }
+   | LENGTH %prec '!' exp { gen_code( SLEN, gen_stack_elem_i( 0 ) ); } 
    | IF bool_exp { $1 = (struct lbs *) newlblrec(); $1->for_jmp_false = reserve_loc(); } 
    THEN commands { $1->for_goto = reserve_loc(); } ELSE { 
      back_patch( $1->for_jmp_false, JMP_FALSE, gen_stack_elem_i( gen_label() ) ); 
    } commands FI { back_patch( $1->for_goto, GOTO, gen_stack_elem_i( gen_label() ) ); } 
    | WHILE { $1 = (struct lbs *) newlblrec(); $1->for_goto = gen_label(); } 
-   bool_exp { $1->for_jmp_false = reserve_loc(); } DO commands END { gen_code( GOTO, gen_stack_elem_i( $1->for_goto ) ); 
-   back_patch( $1->for_jmp_false, JMP_FALSE, gen_stack_elem_i( gen_label() ) ); } 
+     bool_exp { $1->for_jmp_false = reserve_loc(); } DO commands END { 
+     gen_code( GOTO, gen_stack_elem_i( $1->for_goto ) ); 
+     back_patch( $1->for_jmp_false, JMP_FALSE, gen_stack_elem_i( gen_label() ) ); } 
+;
+
+str_exp : CHARS { gen_code( LD_STR, gen_stack_elem_s( $1.str ) ); }
+   | str_exp '+' str_exp { gen_code( ADD, gen_stack_elem_i( 0 ) ); }
+   | str_exp '*' exp { gen_code( MULT, gen_stack_elem_i( 0 ) ); }
+   | exp '*' str_exp { gen_code( MULT, gen_stack_elem_i( 0 ) ); }
+   | '(' str_exp ')' { }
 ;
 
 bool_exp : exp '<' exp { gen_code( LT, gen_stack_elem_i( 0 ) ); } 
@@ -203,18 +225,20 @@ bool_exp : exp '<' exp { gen_code( LT, gen_stack_elem_i( 0 ) ); }
    | bool_exp ANDOP bool_exp { gen_code( AND, gen_stack_elem_i( 0 ) ); }
    | bool_exp OROP bool_exp { gen_code( OR, gen_stack_elem_i( 0 ) ); }
    | '!' bool_exp { gen_code( NOT, gen_stack_elem_i( 0 ) ); }
-   | '(' bool_exp ')' {}
+   | '(' bool_exp ')' { }
 ;
 
 exp : NUMBER { gen_code( LD_INT, gen_stack_elem_i( $1 ) ); }
    | RNUMBER { gen_code( LD_REAL, gen_stack_elem_r( $1 ) ); }
-   | IDENTIFIER { gen_code( gen_load_code( get_sym_type( $1 ) ), gen_stack_elem_i( context_check( $1 ) ) ); } 
+   | IDENTIFIER { gen_code( gen_load_code( get_sym_type( $1 ) ), 
+     gen_stack_elem_i( context_check( $1 ) ) ); } 
    | exp '+' exp { gen_code( ADD, gen_stack_elem_i( 0 ) ); } 
    | exp '-' exp { gen_code( SUB, gen_stack_elem_i( 0 ) ); } 
    | exp '*' exp { gen_code( MULT, gen_stack_elem_i( 0 ) ); } 
    | exp '/' exp { gen_code( DIV, gen_stack_elem_i( 0 ) ); } 
    | exp '^' exp { gen_code( PWR, gen_stack_elem_i( 0 ) ); }
    | '-' %prec '!' exp { gen_code( NEG, gen_stack_elem_i( 0 ) ); }
+   | LENGTH %prec '!' str_exp { gen_code( SLEN, gen_stack_elem_i( 0 ) ); }
    | '(' exp ')' { }
 ;
 

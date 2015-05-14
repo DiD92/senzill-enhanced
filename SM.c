@@ -6,14 +6,15 @@ Modified by: Jordi Planes
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "ST.h"
 #include "SM.h"
 
 /* OPERATIONS: External Representation */ 
 char *op_name[] = {"halt", "store", "jmp_false", "goto", "call", "ret",
-		   "data", "ld_int", "ld_real", "ld_var_i", "ld_var_r", "in_int", "in_real", 
-       "out", "lt", "eq", "gt", "le", "ge", "ne", "and", "or", "not", 
-       "add", "sub", "mult", "div", "pwr", "neg" }; 
+		   "data", "ld_int", "ld_real", "ld_str", "ld_var_i", "ld_var_r", "ld_var_s", 
+       "in_int", "in_real", "in_str", "out", "lt", "eq", "gt", "le", "ge", "ne", 
+       "and", "or", "not", "add", "sub", "mult", "div", "pwr", "neg", "slen" }; 
 
 /* CODE Array */ 
 struct instruction code[MAX_MEMORY];
@@ -51,6 +52,16 @@ stack_elem * gen_stack_elem_r(float value)
   return ptr;
 }
 
+stack_elem * gen_stack_elem_s(char *value)
+{
+  stack_elem *ptr;
+  ptr = (stack_elem *) malloc(sizeof(stack_elem));
+  ptr->v_type = T_STRING;
+  ptr->str = value;
+  ptr->len = strlen(value);
+  return ptr;
+}
+
 /*========================================================================= 
   Operations
   =========================================================================*/ 
@@ -59,6 +70,7 @@ stack_elem * gen_stack_elem_r(float value)
     stack_elem res;
     int iv1, iv2;
     float fv1, fv2;
+    char *stmp;
     switch(s1.v_type) {
       case T_INTEGER: // First value is INTEGER
         switch(s2.v_type) {
@@ -146,6 +158,27 @@ stack_elem * gen_stack_elem_r(float value)
               default:
                 printf( "%d Internal Error: Memory Dump\n", ir.op );
                 break;
+            }
+            break;
+          case T_STRING: // Second value is STRING
+            if( MULT == ir.op ) {
+              if( s1.iv > 0 ) {
+                iv1 = s2.len * s1.iv;
+                iv2 = 0;
+                stmp = malloc( sizeof(char) * iv1 );
+                strcpy( stmp, s2.str );
+                while( iv2 < s1.iv ) {
+                  strcat( stmp, s2.str );
+                  iv2++;
+                }
+                res.str = stmp;
+                res.len = iv1;
+              } else {
+                res.str = "";
+                res.len = 0;
+              }
+            } else {
+              printf( "%d Incompatible types for operation\n", ir.op );
             }
             break;
           default:
@@ -246,6 +279,45 @@ stack_elem * gen_stack_elem_r(float value)
             break;
         }
         break;
+      case T_STRING: // First value is STRING
+        switch(s2.v_type) {
+          case T_STRING: // Second value is STRING
+            if( ADD == ir.op ) {
+              iv1 = s1.len + s2.len;
+              stmp = malloc( sizeof(char) * iv1 );
+              strcpy( stmp, s1.str );
+              strcat( stmp, s2.str );
+              res.str = stmp;
+              res.len = iv1;
+            } else {
+              printf( "%d Incompatible types for operation\n", ir.op );
+            }
+            break;
+          case T_INTEGER: // Second value is INTEGER
+            if( MULT == ir.op ) {
+              if( s2.iv > 0 ) {
+                iv1 = s1.len * s2.iv;
+                iv2 = 0;
+                stmp = malloc( sizeof(char) * iv1 );
+                strcpy( stmp, s1.str );
+                while( iv2 < s2.iv ) {
+                  strcat( stmp, s1.str );
+                  iv2++;
+                }
+                res.str = stmp;
+                res.len = iv1;
+              } else {
+                res.str = "";
+                res.len = 0;
+              }
+            } else {
+              printf( "%d Incompatible types for operation\n", ir.op );
+            }
+            break;
+          default:
+            printf( "%d Incompatible types for operation\n", ir.op );
+            break;
+        }
       default:
         printf( "%d Internal Error: Memory Dump\n", ir.op );
         break;
@@ -282,6 +354,10 @@ void fetch_execute_cycle()
         scanf( "%f", &stack[ar+ir.arg.iv].rv );
         stack[ar+ir.arg.iv].v_type = T_REAL;
         break;
+      case READ_STR:
+        printf( "Input string: ");
+        stack[ar+ir.arg.iv].len = scanf( "%s", stack[ar+ir.arg.iv].str );
+        stack[ar+ir.arg.iv].v_type = T_STRING;
       case WRITE:
         switch(stack[top].v_type) {
           case T_INTEGER:
@@ -290,24 +366,36 @@ void fetch_execute_cycle()
           case T_REAL:
             printf( "Output: %4.4f\n", stack[top--].rv );
             break;
+          case T_STRING:
+            printf( "Output: %s\n", stack[top--].str );
+            break;
           default:
             printf( "%d Internal Error: Memory Dump\n", ir.op ); 
             break; 
         }
         break;
       case STORE:
-        switch(stack[top].v_type) {
-          case T_INTEGER:
-            stack[ir.arg.iv].iv = stack[top].iv;
-            stack[ir.arg.iv].v_type = stack[top--].v_type;
-            break;
-          case T_REAL:
-            stack[ir.arg.iv].rv = stack[top].rv;
-            stack[ir.arg.iv].v_type = stack[top--].v_type;
-            break;
-          default:
-            printf( "%d Internal Error: Memory Dump\n", ir.op ); 
-            break; 
+        if(stack[ir.arg.iv].v_type == stack[top].v_type) {
+          switch(stack[top].v_type) {
+            case T_INTEGER:
+              stack[ir.arg.iv].iv = stack[top].iv;
+              stack[ir.arg.iv].v_type = stack[top--].v_type;
+              break;
+            case T_REAL:
+              stack[ir.arg.iv].rv = stack[top].rv;
+              stack[ir.arg.iv].v_type = stack[top--].v_type;
+              break;
+            case T_STRING:
+              stack[ir.arg.iv].str = strdup( stack[top].str );
+              stack[ir.arg.iv].len = strlen( stack[top].str );
+              stack[ir.arg.iv].v_type = stack[top--].v_type;
+              break;
+            default:
+              printf( "%d Internal Error: Memory Dump\n", ir.op ); 
+              break; 
+          }
+        } else {
+          printf( "%d Incompatible types for operation\n", ir.op );
         }
         break;
       case JMP_FALSE: 
@@ -335,12 +423,22 @@ void fetch_execute_cycle()
         stack[++top].v_type = T_REAL;
         stack[top].rv = ir.arg.rv;
         break;
+      case LD_STR:
+        stack[++top].v_type = T_STRING;
+        stack[top].str = ir.arg.str;
+        stack[top].len = strlen( ir.arg.str );
+        break;
       case LD_VAR_I: 
         stack[++top].iv = stack[ar+ir.arg.iv].iv;
         stack[top].v_type = stack[ar+ir.arg.iv].v_type;
         break;
       case LD_VAR_R:
         stack[++top].rv = stack[ar+ir.arg.iv].rv;
+        stack[top].v_type = stack[ar+ir.arg.iv].v_type;
+        break;
+      case LD_VAR_S:
+        stack[++top].str = strdup( stack[ar+ir.arg.iv].str );
+        stack[top].len = stack[ar+ir.arg.iv].len;
         stack[top].v_type = stack[ar+ir.arg.iv].v_type;
         break;
       case LT:
@@ -388,6 +486,13 @@ void fetch_execute_cycle()
           default:
             printf( "%d Internal Error: Memory Dump\n", ir.op ); 
             break;
+        }
+        break;
+      case SLEN:
+        if( stack[top].v_type == T_STRING ) {
+          stack[top].iv = stack[top].len;
+        } else {
+          printf( "%d Incompatible type for length\n", ir.op ); 
         }
         break;
       default: 

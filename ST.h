@@ -3,7 +3,7 @@ SYMBOL TABLE RECORD
 -------------------------------------------------------------------------*/
 #define MAX_DEPTH 20
 
-enum var_types { T_INTEGER, T_REAL, T_ERR };
+enum var_types { T_INTEGER, T_REAL, T_STRING, T_ERR };
 
 struct symrec 
 { 

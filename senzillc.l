@@ -22,7 +22,7 @@ TOKEN Definitions
 DIGIT [0-9] 
 ID [a-z][a-z0-9]*
 COMMENT "//".*\n
-STRING \".*\"
+STRING ["].*["]
 
 /*========================================================================= 
 REGULAR EXPRESSIONS defining the tokens for the Simple language 
@@ -54,8 +54,8 @@ while { return(WHILE); }
 write { return(OUT); }
 length { return(LENGTH); }
 {ID} { yylval.id = (char *) strdup(yytext); return(IDENTIFIER); }
-{STRING} { yylval.strval.str = (char *) strndup(&yytext[1], strlen( yytext - 2 ) ); 
-	yylval.strval.len = strlen(yytext - 2); return(CHARS); }
+{STRING} { yylval.strval.str = (char *) strdup( yytext ); 
+	yylval.strval.len = strlen(yytext); return(CHARS); }
 [ \t\n]+ /* eat up whitespace */ 
 {COMMENT} /* ignore comments */
 . { return(yytext[0]); } 

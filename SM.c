@@ -164,7 +164,7 @@ stack_elem * gen_stack_elem_s(char *value)
             if( MULT == ir.op ) {
               if( s1.iv > 0 ) {
                 iv1 = s2.len * s1.iv;
-                iv2 = 0;
+                iv2 = 1;
                 stmp = malloc( sizeof(char) * iv1 );
                 strcpy( stmp, s2.str );
                 while( iv2 < s1.iv ) {
@@ -280,6 +280,7 @@ stack_elem * gen_stack_elem_s(char *value)
         }
         break;
       case T_STRING: // First value is STRING
+        res.v_type = T_STRING;
         switch(s2.v_type) {
           case T_STRING: // Second value is STRING
             if( ADD == ir.op ) {
@@ -297,7 +298,7 @@ stack_elem * gen_stack_elem_s(char *value)
             if( MULT == ir.op ) {
               if( s2.iv > 0 ) {
                 iv1 = s1.len * s2.iv;
-                iv2 = 0;
+                iv2 = 1;
                 stmp = malloc( sizeof(char) * iv1 );
                 strcpy( stmp, s1.str );
                 while( iv2 < s2.iv ) {
@@ -318,6 +319,7 @@ stack_elem * gen_stack_elem_s(char *value)
             printf( "%d Incompatible types for operation\n", ir.op );
             break;
         }
+        break;
       default:
         printf( "%d Internal Error: Memory Dump\n", ir.op );
         break;
@@ -356,8 +358,9 @@ void fetch_execute_cycle()
         break;
       case READ_STR:
         printf( "Input string: ");
-        stack[ar+ir.arg.iv].len = scanf( "%s", stack[ar+ir.arg.iv].str );
+        stack[ar+ir.arg.iv].len = scanf( "%ms", &stack[ar+ir.arg.iv].str );
         stack[ar+ir.arg.iv].v_type = T_STRING;
+        break;
       case WRITE:
         switch(stack[top].v_type) {
           case T_INTEGER:
@@ -375,27 +378,23 @@ void fetch_execute_cycle()
         }
         break;
       case STORE:
-        if(stack[ir.arg.iv].v_type == stack[top].v_type) {
-          switch(stack[top].v_type) {
-            case T_INTEGER:
-              stack[ir.arg.iv].iv = stack[top].iv;
-              stack[ir.arg.iv].v_type = stack[top--].v_type;
-              break;
-            case T_REAL:
-              stack[ir.arg.iv].rv = stack[top].rv;
-              stack[ir.arg.iv].v_type = stack[top--].v_type;
-              break;
-            case T_STRING:
-              stack[ir.arg.iv].str = strdup( stack[top].str );
-              stack[ir.arg.iv].len = strlen( stack[top].str );
-              stack[ir.arg.iv].v_type = stack[top--].v_type;
-              break;
-            default:
-              printf( "%d Internal Error: Memory Dump\n", ir.op ); 
-              break; 
-          }
-        } else {
-          printf( "%d Incompatible types for operation\n", ir.op );
+        switch(stack[top].v_type) {
+          case T_INTEGER:
+            stack[ir.arg.iv].iv = stack[top].iv;
+            stack[ir.arg.iv].v_type = stack[top--].v_type;
+            break;
+          case T_REAL:
+            stack[ir.arg.iv].rv = stack[top].rv;
+            stack[ir.arg.iv].v_type = stack[top--].v_type;
+            break;
+          case T_STRING:
+            stack[ir.arg.iv].str = strdup( stack[top].str );
+            stack[ir.arg.iv].len = stack[top].len;
+            stack[ir.arg.iv].v_type = stack[top--].v_type;
+            break;
+          default:
+            printf( "%d Internal Error: Memory Dump\n", ir.op ); 
+            break; 
         }
         break;
       case JMP_FALSE: 
@@ -425,8 +424,14 @@ void fetch_execute_cycle()
         break;
       case LD_STR:
         stack[++top].v_type = T_STRING;
-        stack[top].str = ir.arg.str;
-        stack[top].len = strlen( ir.arg.str );
+        tmp = strlen( ir.arg.str );
+        if( tmp > 2 ) {
+          stack[top].str = strndup( &ir.arg.str[1], tmp - 2 );
+          stack[top].len = tmp - 2;
+        } else {
+          stack[top].str = "";
+          stack[top].len = 0;
+        }
         break;
       case LD_VAR_I: 
         stack[++top].iv = stack[ar+ir.arg.iv].iv;

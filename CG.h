@@ -23,6 +23,8 @@ void back_patch( int addr, enum code_ops operation, stack_elem *arg );
 int gen_label();
 void print_code();
 void read_bytecode( char *file_name );
+file_code read_type( FILE *file);
 void write_bytecode( char *file_name );
+int write_type( FILE *file, file_code bytecode );
 
 #endif

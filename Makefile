@@ -1,7 +1,7 @@
 
 TARGET=senzillc
 
-CFLAGS = -Wall -DNDEBUG
+CFLAGS = -ggdb -Wall -DNDEBUG
 
 .phony: clean all test error
 

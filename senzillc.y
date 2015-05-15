@@ -197,8 +197,7 @@ command : SKIP
    | OUT exp { gen_code( WRITE, gen_stack_elem_i( 0 ) ); }
    | OUT str_exp { gen_code( WRITE, gen_stack_elem_i( 0 ) ); }
    | IDENTIFIER ASSGNOP exp { gen_code( STORE, gen_stack_elem_i( context_check( $1 ) ) ); }
-   | IDENTIFIER ASSGNOP str_exp { gen_code( STORE, gen_stack_elem_i( context_check( $1 ) ) ); }
-   | LENGTH %prec '!' exp { gen_code( SLEN, gen_stack_elem_i( 0 ) ); } 
+   | IDENTIFIER ASSGNOP str_exp { gen_code( STORE, gen_stack_elem_i( context_check( $1 ) ) ); } 
    | IF bool_exp { $1 = (struct lbs *) newlblrec(); $1->for_jmp_false = reserve_loc(); } 
    THEN commands { $1->for_goto = reserve_loc(); } ELSE { 
      back_patch( $1->for_jmp_false, JMP_FALSE, gen_stack_elem_i( gen_label() ) ); 
@@ -239,6 +238,7 @@ exp : NUMBER { gen_code( LD_INT, gen_stack_elem_i( $1 ) ); }
    | exp '^' exp { gen_code( PWR, gen_stack_elem_i( 0 ) ); }
    | '-' %prec '!' exp { gen_code( NEG, gen_stack_elem_i( 0 ) ); }
    | LENGTH %prec '!' str_exp { gen_code( SLEN, gen_stack_elem_i( 0 ) ); }
+   | LENGTH %prec '!' exp { gen_code( SLEN, gen_stack_elem_i( 0 ) ); }
    | '(' exp ')' { }
 ;
 

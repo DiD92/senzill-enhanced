@@ -33,7 +33,9 @@ struct instruction
 { 
   enum code_ops op;
   stack_elem arg;
-}; 
+};
+
+#define MAX_CHARS 256
 
 #define MAX_MEMORY 999
 

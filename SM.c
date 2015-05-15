@@ -334,6 +334,7 @@ void fetch_execute_cycle()
 {
   stack_elem s1, s2, res;
   int tmp;
+  char *buff;
   do { 
 #ifndef NDEBUG    
     printf( "PC = %3d IR.arg = %8d AR = %3d Top = %3d,%8d\n", 
@@ -358,7 +359,14 @@ void fetch_execute_cycle()
         break;
       case READ_STR:
         printf( "Input string: ");
-        stack[ar+ir.arg.iv].len = scanf( "%ms", &stack[ar+ir.arg.iv].str );
+        buff = malloc(MAX_CHARS);
+        fgets( buff, MAX_CHARS, stdin );
+        tmp = strlen( buff );
+        if ( ( tmp > 0 ) && ( buff[tmp - 1] == '\n')) {
+          buff[tmp - 1] = '\0';
+        }
+        stack[ar+ir.arg.iv].len = tmp - 1;
+        stack[ar+ir.arg.iv].str = buff;
         stack[ar+ir.arg.iv].v_type = T_STRING;
         break;
       case WRITE:
@@ -424,7 +432,7 @@ void fetch_execute_cycle()
         break;
       case LD_STR:
         stack[++top].v_type = T_STRING;
-        tmp = strlen( ir.arg.str );
+        tmp = ir.arg.len;
         if( tmp > 2 ) {
           stack[top].str = strndup( &ir.arg.str[1], tmp - 2 );
           stack[top].len = tmp - 2;
@@ -495,6 +503,7 @@ void fetch_execute_cycle()
         break;
       case SLEN:
         if( stack[top].v_type == T_STRING ) {
+          stack[top].v_type = T_INTEGER;
           stack[top].iv = stack[top].len;
         } else {
           printf( "%d Incompatible type for length\n", ir.op ); 

@@ -14,6 +14,8 @@ struct file_code
 };
 typedef struct file_code file_code;
 
+extern int data_offset;
+
 extern int code_offset;
 
 int data_location();

@@ -101,7 +101,7 @@ String \".*\"
 {Command}             { create_command( yytext ); BEGIN( PARAM ); }
 <PARAM>{Integer}      { gen_code( command, gen_stack_elem_i( strtol( yytext, NULL, 10 ) ) ); BEGIN( INITIAL ); }
 <PARAM>{Real}         { gen_code( command, gen_stack_elem_r( strtof( yytext, NULL ) ) ); BEGIN( INITIAL ); }
-<PARAM>{String}       { printf("STRINGTEXT: %s\n", yytext); gen_code( command, gen_stack_elem_s( yytext ) ); BEGIN( INITIAL ); }
+<PARAM>{String}       { gen_code( command, gen_stack_elem_s( yytext ) ); BEGIN( INITIAL ); }
 <PARAM>{Identifier}   { if ( get_address( yytext ) != -1 ) gen_code( command, gen_stack_elem_i( get_address( yytext ) ) ); 
                         else { gen_code( command, gen_stack_elem_i( -1 ) ); new_label( yytext, -1 ); add_backpatch_to_label( yytext, gen_label() ); }
                         BEGIN( INITIAL ); 

@@ -21,7 +21,8 @@ struct stack_elem
 	{
 		int iv; // integers and stack addresses
 		float rv; // float values
-		struct { // string values
+		struct // string values
+		{ 
 			int len;
 			char *str;
 		};

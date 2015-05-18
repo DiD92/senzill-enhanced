@@ -23,7 +23,8 @@ int errors; /* Error Count */
 /*------------------------------------------------------------------------- 
 Support variables
 -------------------------------------------------------------------------*/ 
-int current_type;
+int c_t;
+int v_c;
 /*------------------------------------------------------------------------- 
 The following support backpatching 
 -------------------------------------------------------------------------*/ 
@@ -41,11 +42,11 @@ struct lbs * newlblrec() /* Allocate space for the labels */
 /*------------------------------------------------------------------------- 
 Install identifier & check if previously defined. 
 -------------------------------------------------------------------------*/ 
-void install ( char *sym_name, int sym_type ) 
+void install ( char *sym_name, int sym_type, int sym_const ) 
 { 
   symrec *s = getsym (sym_name); 
   if (s == 0) 
-    s = putsym (sym_name, sym_type); 
+    s = putsym (sym_name, sym_type, sym_const); 
   else { 
     char message[ 100 ];
     sprintf( message, "%s is already defined\n", sym_name ); 
@@ -82,6 +83,22 @@ int get_sym_type( char *sym_name )
     return T_ERR;
   } else {
     return identifier->type;
+  }
+}
+
+/*------------------------------------------------------------------------- 
+Get type for identifier if defined
+-------------------------------------------------------------------------*/
+int get_sym_const( char *sym_name )
+{
+  symrec *identifier = getsym( sym_name );
+  if(identifier == NULL) {
+    char message[ 100 ];
+    sprintf( message, "%s is not defined\n", sym_name ); 
+    yyerror( message );
+    return V_ERR;
+  } else {
+    return identifier->cnst;
   }
 }
 
@@ -153,7 +170,7 @@ TOKENS
 %token <lbls> IF WHILE /* For backpatching labels */ 
 %token SKIP THEN ELSE FI DO END 
 %token INTEGER REAL STRING READ OUT LET IN LENGTH
-%token ASSGNOP GRTOEQ LWROEQ NOTEQ
+%token ASSGNOP GRTOEQ LWROEQ NOTEQ CONST
 
 /*========================================================================= 
 OPERATOR PRECEDENCE 
@@ -175,17 +192,50 @@ program : LET declarations IN { gen_code( DATA, gen_stack_elem_i( data_location(
 ;
 
 declarations : /* empty */
-    | declarations declaration '.'
+    | declarations declaration ';'
 
 declaration : /* empty */ 
-    | INTEGER { current_type = T_INTEGER; } id_seq IDENTIFIER { install( $4, T_INTEGER ); }
-    | REAL { current_type = T_REAL; } id_seq IDENTIFIER { install( $4, T_REAL ); }
-    | STRING { current_type = T_STRING; } id_seq IDENTIFIER { install( $4, T_STRING ); }
+    | INTEGER { c_t = T_INTEGER; v_c = V_NCONST; } 
+      id_seq IDENTIFIER { install( $4, T_INTEGER, V_NCONST ); }
+    | REAL { c_t = T_REAL; v_c = V_NCONST; } 
+      id_seq IDENTIFIER { install( $4, T_REAL, V_NCONST ); }
+    | STRING { c_t = T_STRING; v_c = V_NCONST; } 
+      id_seq IDENTIFIER { install( $4, T_STRING, V_NCONST ); }
+    | CONST %prec '!' INTEGER { c_t = T_INTEGER; v_c = V_CONST; } 
+      cintid_seq IDENTIFIER ASSGNOP NUMBER { install( $5, T_INTEGER, V_CONST ); 
+      gen_code( LD_INT, gen_stack_elem_i( $7 ) ); 
+      gen_code( STORE, gen_stack_elem_i( data_offset - 1 ) ); }
+    | CONST %prec '!' REAL { c_t = T_REAL; v_c = V_CONST; } 
+      crealid_seq IDENTIFIER ASSGNOP RNUMBER { install( $5, T_REAL, V_CONST ); 
+      gen_code( LD_REAL, gen_stack_elem_r( $7 ) ); 
+      gen_code( STORE, gen_stack_elem_i( data_offset - 1 ) ); }
+    | CONST %prec '!' STRING { c_t = T_STRING; v_c = V_CONST; } 
+      cstrid_seq IDENTIFIER ASSGNOP CHARS { install( $5, T_STRING, V_CONST ); 
+      gen_code( LD_STR, gen_stack_elem_s( $7.str ) ); 
+      gen_code( STORE, gen_stack_elem_i( data_offset - 1 ) ); }
 ; 
 
 id_seq : /* empty */ 
-    | id_seq IDENTIFIER ',' { install( $2, current_type ); } 
-; 
+    | id_seq IDENTIFIER ',' { install( $2, c_t, v_c ); }
+;
+
+cintid_seq : /* empty */
+    | cintid_seq IDENTIFIER ASSGNOP NUMBER ',' { install( $2, T_INTEGER, V_CONST ); 
+      gen_code( LD_INT, gen_stack_elem_i( $4 ) ); 
+      gen_code( STORE, gen_stack_elem_i( data_offset - 1 ) ); }
+;
+
+crealid_seq : /* empty */
+    | crealid_seq IDENTIFIER ASSGNOP RNUMBER ',' { install( $2, T_REAL, V_CONST ); 
+      gen_code( LD_REAL, gen_stack_elem_r( $4 ) ); 
+      gen_code( STORE, gen_stack_elem_i( data_offset - 1 ) ); }
+;
+
+cstrid_seq : /* empty */
+    | cstrid_seq IDENTIFIER ASSGNOP CHARS ',' { install( $2, T_STRING, V_CONST ); 
+      gen_code( LD_STR, gen_stack_elem_s( $4.str ) ); 
+      gen_code( STORE, gen_stack_elem_i( data_offset - 1 ) ); }
+;
 
 commands : /* empty */ 
     | commands command ';' 
@@ -196,8 +246,12 @@ command : SKIP
      gen_stack_elem_i( context_check( $2 ) ) ); } 
    | OUT exp { gen_code( WRITE, gen_stack_elem_i( 0 ) ); }
    | OUT str_exp { gen_code( WRITE, gen_stack_elem_i( 0 ) ); }
-   | IDENTIFIER ASSGNOP exp { gen_code( STORE, gen_stack_elem_i( context_check( $1 ) ) ); }
-   | IDENTIFIER ASSGNOP str_exp { gen_code( STORE, gen_stack_elem_i( context_check( $1 ) ) ); } 
+   | IDENTIFIER ASSGNOP exp { if( get_sym_const( $1 ) == V_CONST ) { 
+     printf("Error symbol %s is constant\n", $1); yyerror("semantic error"); } else { 
+     gen_code( STORE, gen_stack_elem_i( context_check( $1 ) ) ); } }
+   | IDENTIFIER ASSGNOP str_exp { if( get_sym_const( $1 ) == V_CONST ) { 
+     printf("Error symbol %s is constant\n", $1); yyerror("semantic error"); } else { 
+     gen_code( STORE, gen_stack_elem_i( context_check( $1 ) ) ); } }
    | IF bool_exp { $1 = (struct lbs *) newlblrec(); $1->for_jmp_false = reserve_loc(); } 
    THEN commands { $1->for_goto = reserve_loc(); } ELSE { 
      back_patch( $1->for_jmp_false, JMP_FALSE, gen_stack_elem_i( gen_label() ) ); 

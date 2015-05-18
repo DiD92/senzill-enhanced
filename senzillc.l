@@ -20,7 +20,7 @@ C-libraries and Token definitions
 TOKEN Definitions 
 =========================================================================*/ 
 DIGIT [0-9] 
-ID [a-z][a-z0-9]*
+ID [a-zA-Z][a-zA-Z0-9]*
 COMMENT "//".*\n
 STRING ["].*["]
 
@@ -42,7 +42,8 @@ fi { return(FI); }
 if { return(IF); }
 and { return(ANDOP); }
 or { return(OROP); }
-in { return(IN); } 
+in { return(IN); }
+const { return(CONST);}
 integer { return(INTEGER); } 
 real { return(REAL); }
 string { return(STRING); }

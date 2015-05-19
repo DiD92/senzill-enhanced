@@ -196,11 +196,11 @@ declarations : /* empty */
 
 declaration : /* empty */ 
     | INTEGER { c_t = T_INTEGER; v_c = V_NCONST; } 
-      id_seq IDENTIFIER { install( $4, T_INTEGER, V_NCONST ); }
+      id_seq iid 
     | REAL { c_t = T_REAL; v_c = V_NCONST; } 
-      id_seq IDENTIFIER { install( $4, T_REAL, V_NCONST ); }
+      id_seq rid
     | STRING { c_t = T_STRING; v_c = V_NCONST; } 
-      id_seq IDENTIFIER { install( $4, T_STRING, V_NCONST ); }
+      id_seq sid
     | CONST %prec '!' INTEGER { c_t = T_INTEGER; v_c = V_CONST; } 
       cintid_seq IDENTIFIER ASSGNOP NUMBER { install( $5, T_INTEGER, V_CONST ); 
       gen_code( LD_INT, gen_stack_elem_i( $7 ) ); 
@@ -213,7 +213,16 @@ declaration : /* empty */
       cstrid_seq IDENTIFIER ASSGNOP CHARS { install( $5, T_STRING, V_CONST ); 
       gen_code( LD_STR, gen_stack_elem_s( $7.str ) ); 
       gen_code( STORE, gen_stack_elem_i( data_offset - 1 ) ); }
-; 
+;
+
+iid : IDENTIFIER { install( $1, T_INTEGER, V_NCONST ); }
+  | IDENTIFIER '[' NUMBER ']' {  }
+
+rid : IDENTIFIER { install( $1, T_REAL, V_NCONST ); }
+  | IDENTIFIER '[' NUMBER ']' {  }
+
+sid : IDENTIFIER { install( $1, T_STRING, V_NCONST ); }
+  | IDENTIFIER '[' NUMBER ']' {  }
 
 id_seq : /* empty */ 
     | id_seq IDENTIFIER ',' { install( $2, c_t, v_c ); }

@@ -8,9 +8,9 @@
 DECLARATIONS 
 =========================================================================*/ 
 /* OPERATIONS: Internal Representation */ 
-enum code_ops { HALT, STORE, JMP_FALSE, GOTO, CALL, RET,
+enum code_ops { HALT, STORE, STI, JMP_FALSE, GOTO, CALL, RET,
 		DATA, LD_INT, LD_REAL, LD_STR, LD_VAR_I, LD_VAR_R,
-		LD_VAR_S, READ_INT, READ_REAL, READ_STR, WRITE, 
+		LD_VAR_S, LDI, READ_INT, READ_REAL, READ_STR, WRITE, 
 		LT, EQ, GT, LE, GE, NE, AND, OR, NOT, ADD, SUB, MULT, 
 		DIV, PWR, NEG, SLEN };
 
@@ -25,6 +25,11 @@ struct stack_elem
 		{ 
 			int len;
 			char *str;
+		};
+		struct // pointer values
+		{
+			int base;
+			int span;
 		};
 	};
 };

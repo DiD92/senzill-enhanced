@@ -11,10 +11,10 @@ Modified by: Jordi Planes
 #include "SM.h"
 
 /* OPERATIONS: External Representation */ 
-char *op_name[] = {"halt", "store", "jmp_false", "goto", "call", "ret",
-		   "data", "ld_int", "ld_real", "ld_str", "ld_var_i", "ld_var_r", "ld_var_s", 
-       "in_int", "in_real", "in_str", "out", "lt", "eq", "gt", "le", "ge", "ne", 
-       "and", "or", "not", "add", "sub", "mult", "div", "pwr", "neg", "slen" }; 
+char *op_name[] = {"halt", "store", "sti", "jmp_false", "goto", "call", "ret",
+		   "data", "ld_int", "ld_real", "ld_str", "ld_var_i", "ld_var_r", "ld_var_s",
+       "ldi", "in_int", "in_real", "in_str", "out", "lt", "eq", "gt", "le", "ge", 
+       "ne", "and", "or", "not", "add", "sub", "mult", "div", "pwr", "neg", "slen" }; 
 
 /* CODE Array */ 
 struct instruction code[MAX_MEMORY];
@@ -405,6 +405,31 @@ void fetch_execute_cycle()
             break; 
         }
         break;
+      case STI:
+        if(stack[top].v_type != stack[top-1].v_type) {
+          printf( "%d Internal Error: Type mismatch\n", ir.op );
+          break;
+        }
+        switch(stack[top].v_type) {
+          case T_INTEGER:
+            stack[top-1].iv = stack[top].iv;
+            stack[top-1].v_type = stack[top].v_type;
+            break;
+          case T_REAL:
+            stack[top-1].rv = stack[top].rv;
+            stack[top-1].v_type = stack[top].v_type;
+            break;
+          case T_STRING:
+            stack[top-1].str = strdup( stack[top].str );
+            stack[top-1].len = stack[top].len;
+            stack[top-1].v_type = stack[top].v_type;
+            break;
+          default:
+            printf( "%d Internal Error: Memory Dump\n", ir.op ); 
+            break; 
+        }
+        top--;
+        break;
       case JMP_FALSE: 
         if ( stack[top--].iv == 0 ) 
           pc = ir.arg.iv; 
@@ -453,6 +478,9 @@ void fetch_execute_cycle()
         stack[++top].str = strdup( stack[ar+ir.arg.iv].str );
         stack[top].len = stack[ar+ir.arg.iv].len;
         stack[top].v_type = stack[ar+ir.arg.iv].v_type;
+        break;
+      case LDI:
+        stack[top] = stack[stack[top].iv];
         break;
       case LT:
       case EQ:

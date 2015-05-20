@@ -55,6 +55,25 @@ void install ( char *sym_name, int sym_type, int sym_const )
 } 
 
 /*------------------------------------------------------------------------- 
+Install pointer & check if previously defined. 
+-------------------------------------------------------------------------*/ 
+void install_pointer ( char *sym_name, int sym_type, int cont_len ) 
+{ 
+  if( cont_len <= 0 ) {
+    yyerror("Array length must be greater than 0");
+  } else {  
+    symrec *s = getsym (sym_name); 
+    if (s == 0) {
+      s = putsym_e (sym_name, sym_type, V_NCONST, cont_len);
+    } else { 
+      char message[ 100 ];
+      sprintf( message, "%s is already defined\n", sym_name ); 
+      yyerror( message );
+    } 
+  }
+}
+
+/*------------------------------------------------------------------------- 
 If identifier is defined, generate code 
 -------------------------------------------------------------------------*/ 
 int context_check( char *sym_name ) 
@@ -87,7 +106,7 @@ int get_sym_type( char *sym_name )
 }
 
 /*------------------------------------------------------------------------- 
-Get type for identifier if defined
+Check of sym is const or not
 -------------------------------------------------------------------------*/
 int get_sym_const( char *sym_name )
 {
@@ -196,11 +215,11 @@ declarations : /* empty */
 
 declaration : /* empty */ 
     | INTEGER { c_t = T_INTEGER; v_c = V_NCONST; } 
-      id_seq iid 
+      iid_seq iid 
     | REAL { c_t = T_REAL; v_c = V_NCONST; } 
-      id_seq rid
+      rid_seq rid
     | STRING { c_t = T_STRING; v_c = V_NCONST; } 
-      id_seq sid
+      sid_seq sid
     | CONST %prec '!' INTEGER { c_t = T_INTEGER; v_c = V_CONST; } 
       cintid_seq IDENTIFIER ASSGNOP NUMBER { install( $5, T_INTEGER, V_CONST ); 
       gen_code( LD_INT, gen_stack_elem_i( $7 ) ); 
@@ -216,17 +235,22 @@ declaration : /* empty */
 ;
 
 iid : IDENTIFIER { install( $1, T_INTEGER, V_NCONST ); }
-  | IDENTIFIER '[' NUMBER ']' {  }
+  | IDENTIFIER '[' NUMBER ']' { install_pointer( $1, T_POINTER, $3 ); }
 
 rid : IDENTIFIER { install( $1, T_REAL, V_NCONST ); }
-  | IDENTIFIER '[' NUMBER ']' {  }
+  | IDENTIFIER '[' NUMBER ']' { install_pointer( $1, T_POINTER, $3 ); }
 
 sid : IDENTIFIER { install( $1, T_STRING, V_NCONST ); }
-  | IDENTIFIER '[' NUMBER ']' {  }
+  | IDENTIFIER '[' NUMBER ']' { install_pointer( $1, T_POINTER, $3 ); }
 
-id_seq : /* empty */ 
-    | id_seq IDENTIFIER ',' { install( $2, c_t, v_c ); }
-;
+iid_seq : /* empty */
+    | iid_seq iid ','
+
+rid_seq : /* emmpty */
+    | rid_seq rid ','
+
+sid_seq : /* empty */
+    | sid_seq sid ','
 
 cintid_seq : /* empty */
     | cintid_seq IDENTIFIER ASSGNOP NUMBER ',' { install( $2, T_INTEGER, V_CONST ); 
@@ -258,11 +282,15 @@ command : SKIP
    | IDENTIFIER ASSGNOP exp { if( get_sym_const( $1 ) == V_CONST ) { 
      printf("Error symbol %s is constant\n", $1); yyerror("semantic error"); } else { 
      gen_code( STORE, gen_stack_elem_i( context_check( $1 ) ) ); } }
+   | IDENTIFIER '[' exp ']' ASSGNOP { gen_code( LD_INT, 
+     gen_stack_elem_i( context_check( $1 ) ) );
+     gen_code( ADD, gen_stack_elem_i( 0 ) ); } exp { 
+     gen_code( STI, gen_stack_elem_i( 0 ) ); }
    | IDENTIFIER ASSGNOP str_exp { if( get_sym_const( $1 ) == V_CONST ) { 
      printf("Error symbol %s is constant\n", $1); yyerror("semantic error"); } else { 
      gen_code( STORE, gen_stack_elem_i( context_check( $1 ) ) ); } }
    | IF bool_exp { $1 = (struct lbs *) newlblrec(); $1->for_jmp_false = reserve_loc(); } 
-   THEN commands { $1->for_goto = reserve_loc(); } ELSE { 
+     THEN commands { $1->for_goto = reserve_loc(); } ELSE { 
      back_patch( $1->for_jmp_false, JMP_FALSE, gen_stack_elem_i( gen_label() ) ); 
    } commands FI { back_patch( $1->for_goto, GOTO, gen_stack_elem_i( gen_label() ) ); } 
    | WHILE { $1 = (struct lbs *) newlblrec(); $1->for_goto = gen_label(); } 
@@ -293,7 +321,11 @@ bool_exp : exp '<' exp { gen_code( LT, gen_stack_elem_i( 0 ) ); }
 exp : NUMBER { gen_code( LD_INT, gen_stack_elem_i( $1 ) ); }
    | RNUMBER { gen_code( LD_REAL, gen_stack_elem_r( $1 ) ); }
    | IDENTIFIER { gen_code( gen_load_code( get_sym_type( $1 ) ), 
-     gen_stack_elem_i( context_check( $1 ) ) ); } 
+     gen_stack_elem_i( context_check( $1 ) ) ); }
+   | IDENTIFIER '[' exp ']' { gen_code( LD_INT, 
+    gen_stack_elem_i( context_check( $1 ) ) );
+    gen_code( ADD, gen_stack_elem_i( 0 ) );
+    gen_code( LDI, gen_stack_elem_i( 0 ) ); } 
    | exp '+' exp { gen_code( ADD, gen_stack_elem_i( 0 ) ); } 
    | exp '-' exp { gen_code( SUB, gen_stack_elem_i( 0 ) ); } 
    | exp '*' exp { gen_code( MULT, gen_stack_elem_i( 0 ) ); } 

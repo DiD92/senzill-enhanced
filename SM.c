@@ -13,7 +13,7 @@ Modified by: Jordi Planes
 /* OPERATIONS: External Representation */ 
 char *op_name[] = {"halt", "store", "sti", "jmp_false", "goto", "call", "ret",
 		   "data", "ld_int", "ld_real", "ld_str", "ld_var_i", "ld_var_r", "ld_var_s",
-       "ldi", "in_int", "in_real", "in_str", "out", "lt", "eq", "gt", "le", "ge", 
+       "ld_ptr", "ldi", "in_int", "in_real", "in_str", "out", "lt", "eq", "gt", "le", "ge", 
        "ne", "and", "or", "not", "add", "sub", "mult", "div", "pwr", "neg", "slen" }; 
 
 /* CODE Array */ 
@@ -59,6 +59,16 @@ stack_elem * gen_stack_elem_s(char *value)
   ptr->v_type = T_STRING;
   ptr->str = value;
   ptr->len = strlen(value);
+  return ptr;
+}
+
+stack_elem * gen_stack_elem_p(int base, int span)
+{
+  stack_elem *ptr;
+  ptr = (stack_elem *) malloc(sizeof(stack_elem));
+  ptr->v_type = T_POINTER;
+  ptr->base = base;
+  ptr->span = span;
   return ptr;
 }
 
@@ -406,23 +416,19 @@ void fetch_execute_cycle()
         }
         break;
       case STI:
-        if(stack[top].v_type != stack[top-1].v_type) {
-          printf( "%d Internal Error: Type mismatch\n", ir.op );
-          break;
-        }
         switch(stack[top].v_type) {
           case T_INTEGER:
-            stack[top-1].iv = stack[top].iv;
-            stack[top-1].v_type = stack[top].v_type;
+            stack[stack[top-1].iv].iv = stack[top].iv;
+            stack[stack[top-1].iv].v_type = stack[top].v_type;
             break;
           case T_REAL:
-            stack[top-1].rv = stack[top].rv;
-            stack[top-1].v_type = stack[top].v_type;
+            stack[stack[top-1].iv].rv = stack[top].rv;
+            stack[stack[top-1].iv].v_type = stack[top].v_type;
             break;
           case T_STRING:
-            stack[top-1].str = strdup( stack[top].str );
-            stack[top-1].len = stack[top].len;
-            stack[top-1].v_type = stack[top].v_type;
+            stack[stack[top-1].iv].str = strdup( stack[top].str );
+            stack[stack[top-1].iv].len = stack[top].len;
+            stack[stack[top-1].iv].v_type = stack[top].v_type;
             break;
           default:
             printf( "%d Internal Error: Memory Dump\n", ir.op ); 
@@ -479,6 +485,11 @@ void fetch_execute_cycle()
         stack[top].len = stack[ar+ir.arg.iv].len;
         stack[top].v_type = stack[ar+ir.arg.iv].v_type;
         break;
+      case LD_PTR:
+        stack[++top].base = ir.arg.base;
+        stack[top].span = ir.arg.span;
+        stack[top].v_type = ir.arg.v_type;
+        break;
       case LDI:
         stack[top] = stack[stack[top].iv];
         break;
@@ -530,12 +541,18 @@ void fetch_execute_cycle()
         }
         break;
       case SLEN:
-        if( stack[top].v_type == T_STRING ) {
-          stack[top].v_type = T_INTEGER;
-          stack[top].iv = stack[top].len;
-        } else {
-          printf( "%d Incompatible type for length\n", ir.op ); 
+        switch (stack[top].v_type) {
+          case T_STRING:
+            stack[top].iv = stack[top].len;
+            break;
+          case T_POINTER:
+            stack[top].iv = stack[top].span;
+            break;
+          default:
+            stack[top].iv = 0;
+            break;
         }
+        stack[top].v_type = T_INTEGER;
         break;
       default: 
         printf( "%d Internal Error: Memory Dump\n", ir.op ); 

@@ -25,6 +25,7 @@ Support variables
 -------------------------------------------------------------------------*/ 
 int c_t;
 int v_c;
+int type_tmp;
 /*------------------------------------------------------------------------- 
 The following support backpatching 
 -------------------------------------------------------------------------*/ 
@@ -154,6 +155,8 @@ int gen_load_code( int sym_type )
       return LD_VAR_R;
     case T_STRING:
       return LD_VAR_S;
+    case T_POINTER:
+      return LD_PTR;
     default:
       sprintf( message, "symbol type not recognized\n" ); 
       yyerror( message );
@@ -282,9 +285,9 @@ command : SKIP
    | IDENTIFIER ASSGNOP exp { if( get_sym_const( $1 ) == V_CONST ) { 
      printf("Error symbol %s is constant\n", $1); yyerror("semantic error"); } else { 
      gen_code( STORE, gen_stack_elem_i( context_check( $1 ) ) ); } }
-   | IDENTIFIER '[' exp ']' ASSGNOP { gen_code( LD_INT, 
-     gen_stack_elem_i( context_check( $1 ) ) );
-     gen_code( ADD, gen_stack_elem_i( 0 ) ); } exp { 
+   | IDENTIFIER '[' exp ']' ASSGNOP { gen_code( LD_PTR, 
+     gen_stack_elem_p( context_check( $1 ), getsym( $1 )->cnt_len ) );
+     gen_code( ADD, gen_stack_elem_i( 0 ) ); } g_exp { 
      gen_code( STI, gen_stack_elem_i( 0 ) ); }
    | IDENTIFIER ASSGNOP str_exp { if( get_sym_const( $1 ) == V_CONST ) { 
      printf("Error symbol %s is constant\n", $1); yyerror("semantic error"); } else { 
@@ -292,12 +295,15 @@ command : SKIP
    | IF bool_exp { $1 = (struct lbs *) newlblrec(); $1->for_jmp_false = reserve_loc(); } 
      THEN commands { $1->for_goto = reserve_loc(); } ELSE { 
      back_patch( $1->for_jmp_false, JMP_FALSE, gen_stack_elem_i( gen_label() ) ); 
-   } commands FI { back_patch( $1->for_goto, GOTO, gen_stack_elem_i( gen_label() ) ); } 
+     } commands FI { back_patch( $1->for_goto, GOTO, gen_stack_elem_i( gen_label() ) ); } 
    | WHILE { $1 = (struct lbs *) newlblrec(); $1->for_goto = gen_label(); } 
      bool_exp { $1->for_jmp_false = reserve_loc(); } DO commands END { 
      gen_code( GOTO, gen_stack_elem_i( $1->for_goto ) ); 
      back_patch( $1->for_jmp_false, JMP_FALSE, gen_stack_elem_i( gen_label() ) ); } 
 ;
+
+g_exp : exp
+    | str_exp
 
 str_exp : CHARS { gen_code( LD_STR, gen_stack_elem_s( $1.str ) ); }
    | str_exp '+' str_exp { gen_code( ADD, gen_stack_elem_i( 0 ) ); }
@@ -320,12 +326,18 @@ bool_exp : exp '<' exp { gen_code( LT, gen_stack_elem_i( 0 ) ); }
 
 exp : NUMBER { gen_code( LD_INT, gen_stack_elem_i( $1 ) ); }
    | RNUMBER { gen_code( LD_REAL, gen_stack_elem_r( $1 ) ); }
-   | IDENTIFIER { gen_code( gen_load_code( get_sym_type( $1 ) ), 
-     gen_stack_elem_i( context_check( $1 ) ) ); }
-   | IDENTIFIER '[' exp ']' { gen_code( LD_INT, 
-    gen_stack_elem_i( context_check( $1 ) ) );
-    gen_code( ADD, gen_stack_elem_i( 0 ) );
-    gen_code( LDI, gen_stack_elem_i( 0 ) ); } 
+   | IDENTIFIER { type_tmp = get_sym_type( $1 );
+     if ( T_POINTER == type_tmp ) {
+        gen_code( gen_load_code( type_tmp ), 
+        gen_stack_elem_p( context_check( $1 ), getsym( $1 )->cnt_len ) );
+      } else {
+        gen_code( gen_load_code( type_tmp ), 
+        gen_stack_elem_i( context_check( $1 ) ) );
+      } }
+   | IDENTIFIER '[' exp ']' { gen_code( LD_PTR, 
+     gen_stack_elem_p( context_check( $1 ), getsym( $1 )->cnt_len ) );
+     gen_code( ADD, gen_stack_elem_i( 0 ) );
+     gen_code( LDI, gen_stack_elem_i( 0 ) ); } 
    | exp '+' exp { gen_code( ADD, gen_stack_elem_i( 0 ) ); } 
    | exp '-' exp { gen_code( SUB, gen_stack_elem_i( 0 ) ); } 
    | exp '*' exp { gen_code( MULT, gen_stack_elem_i( 0 ) ); } 

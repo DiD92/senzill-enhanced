@@ -64,6 +64,10 @@ void print_code()
       case T_STRING:
         printf("%3d: %-10s%s\n",i,op_name[(int) code[i].op], code[i].arg.str);
         break;
+      case T_POINTER:
+        printf("%3d: %-10s%4d:%02d\n",i,op_name[(int) code[i].op], 
+          code[i].arg.base, code[i].arg.span);
+        break;
       default:
         printf("%3d: UNKNOWN COMMAND\n", i);
         return;
@@ -113,6 +117,10 @@ file_code read_type( FILE *file ) {
       fread( tmp_buff, sizeof( char ), type.arg.len, file );
       type.arg.str = tmp_buff;
       break;
+    case T_POINTER:
+      fread( &type.arg.base, sizeof( int ), 1, file );
+      fread( &type.arg.span, sizeof( int ), 1, file );
+      break;
     default:
       type.arg.v_type = T_ERR;
   }
@@ -156,6 +164,10 @@ int write_type( FILE *file, file_code bytecode ) {
       tmp_buff = bytecode.arg.str;
       fwrite( &bytecode.arg.len, sizeof( int ), 1, file );
       fwrite( tmp_buff, sizeof( char ), bytecode.arg.len, file );
+      return 0;
+    case T_POINTER:
+      fwrite( &bytecode.arg.base, sizeof( int ), 1, file );
+      fwrite( &bytecode.arg.span, sizeof( int ), 1, file );
       return 0;
     default:
       return 1;

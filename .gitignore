@@ -1,5 +1,5 @@
-# Senzill files
-*.sz
+# Object files
+*.o
 
 # Assembler files
 *.asm

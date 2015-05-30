@@ -188,7 +188,7 @@ stack_elem * gen_stack_elem_p(int base, int span)
                 res.len = 0;
               }
             } else {
-              printf( "%d Incompatible types for operation\n", ir.op );
+              printf( "%d %d %d Incompatible types for operation\n", ir.op, s1.v_type, s2.v_type );
             }
             break;
           default:
@@ -301,7 +301,7 @@ stack_elem * gen_stack_elem_p(int base, int span)
               res.str = stmp;
               res.len = iv1;
             } else {
-              printf( "%d Incompatible types for operation\n", ir.op );
+              printf( "%d %d %d Incompatible types for operation\n", ir.op, s1.v_type, s2.v_type );
             }
             break;
           case T_INTEGER: // Second value is INTEGER
@@ -322,11 +322,11 @@ stack_elem * gen_stack_elem_p(int base, int span)
                 res.len = 0;
               }
             } else {
-              printf( "%d Incompatible types for operation\n", ir.op );
+              printf( "%d %d %d Incompatible types for operation\n", ir.op, s1.v_type, s2.v_type );
             }
             break;
           default:
-            printf( "%d Incompatible types for operation\n", ir.op );
+            printf( "%d %d %d Incompatible types for operation\n", ir.op, s1.v_type, s2.v_type );
             break;
         }
         break;
@@ -434,7 +434,7 @@ void fetch_execute_cycle()
             printf( "%d Internal Error: Memory Dump\n", ir.op ); 
             break; 
         }
-        top--;
+        top = top - 2;
         break;
       case JMP_FALSE: 
         if ( stack[top--].iv == 0 ) 
@@ -521,7 +521,15 @@ void fetch_execute_cycle()
       case DIV:
       case PWR:
         s1 = stack[top-1];
+        if(s1.v_type == T_POINTER) {
+          s1.iv = s1.base;
+          s1.v_type = T_INTEGER;
+        }
         s2 = stack[top];
+        if(s2.v_type == T_POINTER) {
+          s2.iv = s2.base;
+          s2.v_type = T_INTEGER;
+        }
         res = operate_terms( s1, s2, ir.op ); // ERRORS
         stack[top-1] = res;
         top--;
